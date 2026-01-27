@@ -1,0 +1,67 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+/lib/
+/lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+
+# Configuration and Data
+config.yaml
+.env
+data/
+output.log
+*.sst
+*.log
+*.lock
+MANIFEST-*
+OPTIONS-*
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Project data
+data/
+*.db
+
+# Environment
+.env
+.env.local
+
+# Logs
+*.log
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+
+# MCF execution artifacts (keep goals.md, plan.yaml, overview.md)
+.mcf/runs/
+.mcf/events.jsonl
+.mcf/lock
+.mcf/lock.info
+.mcf/health.md
+config.yaml

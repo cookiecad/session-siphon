@@ -1,0 +1,47 @@
+machine_id: "your-machine-id"
+
+collector:
+  interval_seconds: 30
+  outbox_path: "~/session-siphon/outbox"
+  state_db: "~/session-siphon/state/collector.db"
+
+  sources:
+    claude_code:
+      enabled: true
+      paths:
+        - "~/.claude/projects/**/*.jsonl"
+    codex:
+      enabled: true
+      paths:
+        - "~/.codex/sessions/*/*/*/*.jsonl"
+    vscode:
+      enabled: true
+      paths:
+        - "~/.config/Code/User/workspaceStorage/*/chatSessions/*.json"
+        - "~/.config/Code/User/workspaceStorage/*/workspace.json"
+        - "~/.config/Code - Insiders/User/workspaceStorage/*/chatSessions/*.json"
+        - "~/.config/Code - Insiders/User/workspaceStorage/*/workspace.json"
+    gemini:
+      enabled: true
+      paths:
+        - "~/.gemini/tmp/*/chats/session-*.json"
+    opencode:
+      enabled: true
+      paths:
+        - "~/.opencode/project/*/session/*/*.json"
+    antigravity:
+      enabled: true
+      paths:
+        - "~/.gemini/antigravity/conversations/*.json"
+        - "~/.gemini/antigravity/brain/*/*.json"
+
+server:
+  inbox_path: "~/session-siphon/inbox"
+  archive_path: "~/session-siphon/archive"
+  state_db: "~/session-siphon/state/processor.db"
+
+typesense:
+  host: "localhost"
+  port: 8108
+  protocol: "http"
+  api_key: "${TYPESENSE_API_KEY}"

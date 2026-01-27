@@ -1,0 +1,359 @@
+version: 1
+
+project:
+  id: session-siphon
+  main_branch: main
+
+policy:
+  orchestrator_max_tasks: 5
+  orchestrator_timeout_minutes: 60
+  repeat_failure_escalation: 2
+
+phases:
+  - id: foundation
+    title: Project Foundation
+    objective: Set up project structure, configuration, and Typesense
+    status: complete
+    tasks:
+      - id: T001
+        title: Complete Python project setup
+        type: code
+        status: done
+        acceptance:
+          - pyproject.toml has all dependencies (watchdog, typesense, pyyaml, click)
+          - src/ directory structure matches design
+          - config.py loads config.yaml correctly
+          - pip install -e . works
+        depends_on: []
+        last_run_id: null
+        notes: "Verified: pyproject.toml complete, src/ structure correct, config.py functional"
+
+      - id: T002
+        title: Set up Typesense Docker configuration
+        type: code
+        status: done
+        acceptance:
+          - docker-compose.yml configured for Typesense 27.1
+          - docker compose up -d starts Typesense successfully
+          - Typesense responds on localhost:8108
+        depends_on: []
+        last_run_id: null
+        notes: "Verified: docker-compose.yml configured correctly"
+
+      - id: T003
+        title: Create Typesense collection schemas
+        type: code
+        status: done
+        acceptance:
+          - scripts/setup-typesense.sh creates messages and conversations collections
+          - Collections have correct field definitions per DESIGN.md
+          - Script is idempotent (can run multiple times)
+        depends_on: [T002]
+        last_run_id: null
+        notes: "Verified: setup-typesense.sh exists with correct schema, idempotent"
+
+  - id: collector
+    title: Collector Daemon
+    objective: Monitor source directories and copy files to outbox
+    status: complete
+    tasks:
+      - id: T004
+        title: Implement source discovery module
+        type: code
+        status: done
+        acceptance:
+          - src/collector/sources.py implements get_*_paths() for all 4 sources
+          - discover_all_sources() returns dict of source -> paths
+          - Handles missing directories gracefully
+          - Tests verify discovery works on local machine
+        depends_on: [T001]
+        last_run_id: null
+        notes: "Commit 74f018e: sources.py with 4 discovery functions, 19 tests passing"
+
+      - id: T005
+        title: Implement collector state tracking
+        type: code
+        status: done
+        acceptance:
+          - src/collector/state.py implements CollectorState class
+          - SQLite database with files table per schema
+          - CRUD operations for file state (get, update, list)
+          - Tests verify state persistence
+        depends_on: [T001]
+        last_run_id: null
+        notes: "Commit 74f018e: CollectorState class with FileState dataclass, 23 tests passing"
+
+      - id: T006
+        title: Implement file copier module
+        type: code
+        status: done
+        acceptance:
+          - src/collector/copier.py implements copy functions
+          - copy_jsonl_incremental appends only new bytes
+          - copy_json_snapshot copies when hash changes
+          - map_source_to_outbox creates correct paths
+          - Tests verify incremental copy works
+        depends_on: [T005]
+        last_run_id: null
+        notes: "Commit 26a7ad7: copier.py with 5 functions, 27 tests passing, 69 total tests pass"
+
+      - id: T007
+        title: Implement collector daemon main loop
+        type: code
+        status: done
+        acceptance:
+          - src/collector/daemon.py implements run_collector()
+          - src/collector/__main__.py provides CLI entry point
+          - Daemon discovers sources, syncs files, sleeps, repeats
+          - python -m collector runs the daemon
+          - Graceful shutdown on SIGINT/SIGTERM
+        depends_on: [T004, T005, T006]
+        last_run_id: null
+        notes: "Commit 50856dd: daemon.py with run_collector(), __main__.py CLI, 20 tests passing, 89 total tests pass"
+
+      - id: T008
+        title: Create rsync sync script
+        type: code
+        status: done
+        acceptance:
+          - scripts/sync-to-server.sh syncs outbox to inbox
+          - Works for local directories (Phase 1)
+          - Easy to modify for remote sync later
+        depends_on: []
+        last_run_id: null
+        notes: "Verified: scripts/sync-to-server.sh exists and is functional. Moved depends_on since script is ready."
+
+  - id: processor
+    title: Processor Service
+    objective: Parse files, normalize messages, index to Typesense
+    status: complete
+    tasks:
+      - id: T009
+        title: Implement parser base class and data models
+        type: code
+        status: done
+        acceptance:
+          - src/processor/parsers/base.py defines CanonicalMessage dataclass
+          - Parser abstract base class with parse() method
+          - generate_message_id() creates stable IDs
+          - content_hash uses SHA256
+        depends_on: [T001]
+        last_run_id: 20260126-003340-coder-T009
+        notes: "Merged to main, commit 60bb090"
+
+      - id: T010
+        title: Implement Claude Code parser
+        type: code
+        status: done
+        acceptance:
+          - src/processor/parsers/claude_code.py parses JSONL format
+          - Extracts timestamp, role, content, session_id, project
+          - Handles incremental parsing from offset
+          - Tests with real Claude Code files pass
+        depends_on: [T009]
+        last_run_id: 20260126-003828-coder-T010
+        notes: "Merged to main, commit 001db6a"
+
+      - id: T011
+        title: Implement Codex parser
+        type: code
+        status: done
+        acceptance:
+          - src/processor/parsers/codex.py parses JSONL events
+          - Extracts messages from turn.completed and item.* events
+          - Handles incremental parsing from offset
+          - Tests pass
+        depends_on: [T009]
+        last_run_id: 20260126-005317-coder-T011
+        notes: "Merged to main, commit 6a6617d"
+
+      - id: T012
+        title: Implement VS Code Copilot parser
+        type: code
+        status: done
+        acceptance:
+          - src/processor/parsers/vscode.py parses JSON sessions
+          - Full reparse on change, dedup by content hash
+          - Extracts workspace from path
+          - Tests pass
+        depends_on: [T009]
+        last_run_id: 20260126-005318-coder-T012
+        notes: "Merged to main, commit 221f782"
+
+      - id: T013
+        title: Implement Gemini CLI parser
+        type: code
+        status: done
+        acceptance:
+          - src/processor/parsers/gemini.py parses JSON sessions
+          - Full reparse on change
+          - Extracts project from path
+          - Tests pass
+        depends_on: [T009]
+        last_run_id: 20260126-005319-coder-T013
+        notes: "Merged to main, commit d7c9ace"
+
+      - id: T014
+        title: Implement processor state tracking
+        type: code
+        status: done
+        acceptance:
+          - src/processor/state.py implements ProcessorState class
+          - SQLite with processed_files table
+          - Tracks last_offset per file
+          - Tests verify state persistence
+        depends_on: [T001]
+        last_run_id: 20260126-003830-coder-T014
+        notes: "Merged to main, commit 3f29bab"
+
+      - id: T015
+        title: Implement Typesense indexer
+        type: code
+        status: done
+        acceptance:
+          - src/processor/indexer.py implements TypesenseIndexer
+          - ensure_collections() creates/verifies collections
+          - upsert_messages() indexes messages
+          - update_conversation() updates conversation metadata
+          - Tests verify indexing works
+        depends_on: [T003]
+        last_run_id: 20260126-003832-coder-T015
+        notes: "Merged to main, commit 9f41e80"
+
+      - id: T016
+        title: Implement archiver module
+        type: code
+        status: done
+        acceptance:
+          - src/processor/archiver.py implements archive_file()
+          - Moves files to archive with date-based structure
+          - Preserves source/machine hierarchy
+        depends_on: [T001]
+        last_run_id: 20260126-003833-coder-T016
+        notes: "Merged to main, commit 3899fa3"
+
+      - id: T017
+        title: Implement processor daemon main loop
+        type: code
+        status: done
+        acceptance:
+          - src/processor/daemon.py implements run_processor()
+          - Scans inbox, parses files, indexes, archives
+          - src/processor/__main__.py provides CLI entry point
+          - python -m processor runs the daemon
+          - Handles active files (only archives stable files)
+        depends_on: [T010, T011, T012, T013, T014, T015, T016]
+        last_run_id: 20260126-010206-coder-T017
+        notes: "Merged to main, commit 13ce230"
+
+  - id: ui
+    title: Next.js UI
+    objective: Basic UI for browsing and searching conversations
+    status: complete
+    tasks:
+      - id: T018
+        title: Initialize Next.js project
+        type: code
+        status: done
+        acceptance:
+          - ui/ directory with Next.js 14+ app router
+          - TypeScript configured
+          - Tailwind CSS for styling
+          - npm run dev starts successfully
+        depends_on: []
+        last_run_id: 20260126-011329-coder-T018
+        notes: "Merged to main, commit f001ad0"
+
+      - id: T019
+        title: Implement Typesense client library
+        type: code
+        status: done
+        acceptance:
+          - ui/src/lib/typesense.ts creates Typesense client
+          - Functions to search messages and conversations
+          - Handles pagination
+        depends_on: [T018]
+        last_run_id: 20260126-011712-coder-T019
+        notes: "Merged to main, commit d46243c"
+
+      - id: T020
+        title: Implement conversation list page
+        type: code
+        status: done
+        acceptance:
+          - ui/src/app/page.tsx shows conversation list
+          - Sorted by date (most recent first)
+          - Filters by source, project
+          - Shows conversation preview
+        depends_on: [T019]
+        last_run_id: 20260126-012111-coder-T020
+        notes: "Merged to main, commit a5c66d5"
+
+      - id: T021
+        title: Implement search page
+        type: code
+        status: done
+        acceptance:
+          - ui/src/app/search/page.tsx provides search interface
+          - Full-text search across messages
+          - Faceted filters (source, project, role)
+          - Results link to conversation view
+        depends_on: [T019]
+        last_run_id: 20260126-012112-coder-T021
+        notes: "Merged to main, commit 658fab8"
+
+      - id: T022
+        title: Implement conversation viewer
+        type: code
+        status: done
+        acceptance:
+          - ui/src/app/conversation/[id]/page.tsx shows messages
+          - MessageBubble component renders user/assistant messages
+          - Scrollable conversation view
+          - Shows metadata (source, project, timestamp)
+        depends_on: [T019]
+        last_run_id: 20260126-012113-coder-T022
+        notes: "Merged to main, commit 8c7ec5d"
+
+  - id: integration
+    title: Integration and Testing
+    objective: End-to-end testing and polish
+    status: complete
+    tasks:
+      - id: T023
+        title: End-to-end integration test
+        type: code
+        status: done
+        acceptance:
+          - "Full pipeline works: collector -> sync -> processor -> UI"
+          - Can search for messages from Claude Code sessions
+          - New messages appear after collector/processor runs
+          - At least one other source (Codex or VS Code) works
+        depends_on: [T007, T008, T017, T020, T021, T022]
+        last_run_id: 20260126-013133-coder-T023
+        notes: "Merged to main, commit a23f1b2"
+
+      - id: T024
+        title: Add logging and error handling
+        type: code
+        status: done
+        acceptance:
+          - Python logging configured in all modules
+          - Errors logged with context
+          - Daemon continues on individual file errors
+          - Log files written to ~/session-siphon/logs/
+        depends_on: [T023]
+        last_run_id: 20260126-013952-coder-T024
+        notes: "Merged to main, commit 2115452. Test failures fixed in T025."
+
+      - id: T025
+        title: Fix test failures from logging changes
+        type: code
+        status: done
+        acceptance:
+          - All 319 tests pass
+          - Tests updated to work with logging instead of stdout
+          - No regressions in test coverage
+        depends_on: [T024]
+        last_run_id: 20260126-014926-orchestrator
+        notes: "Merged to main, commit ab298ae. Fixed 7 tests to use caplog instead of capsys."

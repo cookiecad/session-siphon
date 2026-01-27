@@ -3,7 +3,7 @@ services:
     image: typesense/typesense:27.1
     restart: unless-stopped
     ports:
-      - "127.0.0.1:8108:8108"
+      - "${TYPESENSE_BIND:-0.0.0.0}:8108:8108"
     volumes:
       - ./data/typesense:/data
     command: >
@@ -12,3 +12,35 @@ services:
       --enable-cors
     environment:
       - TYPESENSE_API_KEY=${TYPESENSE_API_KEY:-dev-api-key}
+
+  processor:
+    image: ${PROCESSOR_IMAGE:-ghcr.io/cookiecad/session-siphon-processor}:${IMAGE_TAG:-latest}
+    build:
+      context: .
+      dockerfile: Dockerfile.processor
+    restart: unless-stopped
+    volumes:
+      - ./data/session-siphon:/data/session-siphon
+    environment:
+      - TYPESENSE_API_KEY=${TYPESENSE_API_KEY:-dev-api-key}
+      - TYPESENSE_HOST=typesense
+      - TYPESENSE_PORT=8108
+      - TYPESENSE_PROTOCOL=http
+    depends_on:
+      - typesense
+
+  ui:
+    image: ${UI_IMAGE:-ghcr.io/cookiecad/session-siphon-ui}:${IMAGE_TAG:-latest}
+    build:
+      context: ./ui
+      dockerfile: Dockerfile
+      args:
+        - NEXT_PUBLIC_TYPESENSE_HOST=${NEXT_PUBLIC_TYPESENSE_HOST:-localhost}
+        - NEXT_PUBLIC_TYPESENSE_PORT=${NEXT_PUBLIC_TYPESENSE_PORT:-8108}
+        - NEXT_PUBLIC_TYPESENSE_PROTOCOL=${NEXT_PUBLIC_TYPESENSE_PROTOCOL:-http}
+        - NEXT_PUBLIC_TYPESENSE_API_KEY=${TYPESENSE_API_KEY:-dev-api-key}
+    restart: unless-stopped
+    ports:
+      - "${UI_PORT:-3000}:3000"
+    depends_on:
+      - typesense

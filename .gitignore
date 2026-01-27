@@ -65,3 +65,6 @@ htmlcov/
 .mcf/lock.info
 .mcf/health.md
 config.yaml
+
+# Deploy script (contains machine-specific config)
+scripts/deploy.sh

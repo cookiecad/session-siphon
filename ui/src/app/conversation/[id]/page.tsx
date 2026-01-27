@@ -74,6 +74,10 @@ export default async function ConversationPage({
               {formatSource(firstMessage.source)}
             </div>
             <div>
+              <span className="font-medium">Machine:</span>{" "}
+              <span className="font-mono text-xs">{firstMessage.machine_id}</span>
+            </div>
+            <div>
               <span className="font-medium">Project:</span>{" "}
               <span className="font-mono text-xs">{firstMessage.project}</span>
             </div>

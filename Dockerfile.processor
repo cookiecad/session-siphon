@@ -1,0 +1,46 @@
+# syntax=docker/dockerfile:1
+
+# Stage 1: Build
+FROM python:3.11-slim AS builder
+
+WORKDIR /app
+
+# Install build dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy project files
+COPY pyproject.toml README.md ./
+COPY src/ ./src/
+
+# Build the package
+RUN pip install --no-cache-dir build && \
+    python -m build --wheel
+
+# Stage 2: Runtime
+FROM python:3.11-slim AS runtime
+
+WORKDIR /app
+
+# Create data directory for inbox
+RUN mkdir -p /data/session-siphon/inbox \
+             /data/session-siphon/archive \
+             /data/session-siphon/state
+
+# Copy wheel from builder and install
+COPY --from=builder /app/dist/*.whl /tmp/
+RUN pip install --no-cache-dir /tmp/*.whl && \
+    rm -rf /tmp/*.whl
+
+# Copy Docker-specific config
+COPY config.docker.yaml /app/config.yaml
+
+# Set environment variables
+ENV PYTHONUNBUFFERED=1
+
+# Expose the inbox directory as a volume
+VOLUME ["/data/session-siphon"]
+
+# Run the processor daemon (uses config file, no CLI args needed)
+CMD ["siphon-processor"]

@@ -88,6 +88,7 @@ interface FiltersProps {
   filters: ConversationFilters;
   sources: string[];
   projects: string[];
+  machineIds: string[];
   onFilterChange: (filters: ConversationFilters) => void;
   groupByProject: boolean;
   onGroupByProjectChange: (enabled: boolean) => void;
@@ -97,6 +98,7 @@ function Filters({
   filters,
   sources,
   projects,
+  machineIds,
   onFilterChange,
   groupByProject,
   onGroupByProjectChange,
@@ -122,6 +124,30 @@ function Filters({
           {sources.map((source) => (
             <option key={source} value={source}>
               {formatSourceName(source)}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <div className="flex flex-col gap-1">
+        <label
+          htmlFor="machine-filter"
+          className="text-xs font-medium text-zinc-500 dark:text-zinc-400"
+        >
+          Source Machine
+        </label>
+        <select
+          id="machine-filter"
+          value={filters.machineId || ""}
+          onChange={(e) =>
+            onFilterChange({ ...filters, machineId: e.target.value || undefined })
+          }
+          className="px-3 py-1.5 text-sm bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+        >
+          <option value="">All Machines</option>
+          {machineIds.map((machineId) => (
+            <option key={machineId} value={machineId}>
+              {machineId}
             </option>
           ))}
         </select>
@@ -167,7 +193,7 @@ function Filters({
         </label>
       </div>
 
-      {(filters.source || filters.project) && (
+      {(filters.source || filters.project || filters.machineId) && (
         <div className="flex items-end">
           <button
             onClick={() => onFilterChange({})}
@@ -203,6 +229,9 @@ function ConversationCard({ conversation, showProject = true }: { conversation: 
       <div className="flex items-center gap-3 text-xs">
         <span className={`px-2 py-0.5 rounded-full font-medium ${getSourceColor(conversation.source)}`}>
           {formatSourceName(conversation.source)}
+        </span>
+        <span className="text-zinc-500 dark:text-zinc-400 font-mono">
+          {conversation.machine_id}
         </span>
         {showProject && (
           <span className="text-zinc-500 dark:text-zinc-400 flex items-center gap-1">
@@ -331,6 +360,7 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
   const [availableSources, setAvailableSources] = useState<string[]>([]);
   const [availableProjects, setAvailableProjects] = useState<string[]>([]);
+  const [availableMachineIds, setAvailableMachineIds] = useState<string[]>([]);
 
   const fetchConversations = useCallback(async () => {
     setLoading(true);
@@ -345,15 +375,18 @@ export default function Home() {
 
       // Extract unique sources and projects from results for filter options
       // Only update if we have no filters applied (to get full list)
-      if (!filters.source && !filters.project) {
+      if (!filters.source && !filters.project && !filters.machineId) {
         const sources = new Set<string>();
         const projects = new Set<string>();
+        const machineIds = new Set<string>();
         data.hits.forEach((hit) => {
           sources.add(hit.document.source);
           projects.add(hit.document.project);
+          machineIds.add(hit.document.machine_id);
         });
         setAvailableSources(Array.from(sources).sort());
         setAvailableProjects(Array.from(projects).sort());
+        setAvailableMachineIds(Array.from(machineIds).sort());
       }
     } catch (err) {
       setError(
@@ -391,6 +424,7 @@ export default function Home() {
           filters={filters}
           sources={availableSources}
           projects={availableProjects}
+          machineIds={availableMachineIds}
           onFilterChange={handleFilterChange}
           groupByProject={groupByProject}
           onGroupByProjectChange={setGroupByProject}
@@ -418,7 +452,7 @@ export default function Home() {
           <>
             {results.hits.length === 0 ? (
               <div className="p-8 text-center text-zinc-500 dark:text-zinc-400">
-                {filters.source || filters.project
+                {filters.source || filters.project || filters.machineId
                   ? "No conversations match your filters"
                   : "No conversations found"}
               </div>

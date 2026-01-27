@@ -1,0 +1,15 @@
+# Docker server configuration for session-siphon processor
+# This config is baked into the Docker image
+
+machine_id: "docker-processor"
+
+server:
+  inbox_path: "/data/session-siphon/inbox"
+  archive_path: "/data/session-siphon/archive"
+  state_db: "/data/session-siphon/state/processor.db"
+
+typesense:
+  host: "typesense"
+  port: 8108
+  protocol: "http"
+  api_key: "${TYPESENSE_API_KEY}"

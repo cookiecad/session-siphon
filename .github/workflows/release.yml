@@ -1,0 +1,237 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+env:
+  REGISTRY: ghcr.io
+  PROCESSOR_IMAGE: ghcr.io/cookiecad/session-siphon-processor
+  UI_IMAGE: ghcr.io/cookiecad/session-siphon-ui
+
+jobs:
+  build-collector-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pyinstaller
+          pip install .
+
+      - name: Build with PyInstaller
+        run: |
+          pyinstaller collector.spec
+
+      - name: Rename binary
+        run: |
+          mv dist/siphon-collector dist/siphon-collector-linux-x86_64
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: siphon-collector-linux-x86_64
+          path: dist/siphon-collector-linux-x86_64
+
+  build-collector-macos-x86_64:
+    runs-on: macos-13  # x86_64 runner
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pyinstaller
+          pip install .
+
+      - name: Build with PyInstaller
+        run: |
+          pyinstaller collector.spec
+
+      - name: Rename binary
+        run: |
+          mv dist/siphon-collector dist/siphon-collector-macos-x86_64
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: siphon-collector-macos-x86_64
+          path: dist/siphon-collector-macos-x86_64
+
+  build-collector-macos-arm64:
+    runs-on: macos-14  # arm64 runner
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pyinstaller
+          pip install .
+
+      - name: Build with PyInstaller
+        run: |
+          pyinstaller collector.spec
+
+      - name: Rename binary
+        run: |
+          mv dist/siphon-collector dist/siphon-collector-macos-arm64
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: siphon-collector-macos-arm64
+          path: dist/siphon-collector-macos-arm64
+
+  build-collector-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pyinstaller
+          pip install .
+
+      - name: Build with PyInstaller
+        run: |
+          pyinstaller collector.spec
+
+      - name: Rename binary
+        run: |
+          mv dist/siphon-collector.exe dist/siphon-collector-windows-x86_64.exe
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: siphon-collector-windows-x86_64
+          path: dist/siphon-collector-windows-x86_64.exe
+
+  build-docker-images:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata for processor
+        id: meta-processor
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.PROCESSOR_IMAGE }}
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build and push processor image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile.processor
+          push: true
+          tags: ${{ steps.meta-processor.outputs.tags }}
+          labels: ${{ steps.meta-processor.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          platforms: linux/amd64,linux/arm64
+
+      - name: Extract metadata for UI
+        id: meta-ui
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.UI_IMAGE }}
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build and push UI image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./ui
+          file: ./ui/Dockerfile
+          push: true
+          tags: ${{ steps.meta-ui.outputs.tags }}
+          labels: ${{ steps.meta-ui.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          platforms: linux/amd64,linux/arm64
+
+  create-release:
+    needs:
+      - build-collector-linux
+      - build-collector-macos-x86_64
+      - build-collector-macos-arm64
+      - build-collector-windows
+      - build-docker-images
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Prepare release assets
+        run: |
+          mkdir -p release
+          cp artifacts/siphon-collector-linux-x86_64/siphon-collector-linux-x86_64 release/
+          cp artifacts/siphon-collector-macos-x86_64/siphon-collector-macos-x86_64 release/
+          cp artifacts/siphon-collector-macos-arm64/siphon-collector-macos-arm64 release/
+          cp artifacts/siphon-collector-windows-x86_64/siphon-collector-windows-x86_64.exe release/
+          chmod +x release/siphon-collector-linux-x86_64
+          chmod +x release/siphon-collector-macos-x86_64
+          chmod +x release/siphon-collector-macos-arm64
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            release/siphon-collector-linux-x86_64
+            release/siphon-collector-macos-x86_64
+            release/siphon-collector-macos-arm64
+            release/siphon-collector-windows-x86_64.exe
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

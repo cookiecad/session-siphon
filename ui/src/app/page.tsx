@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   searchConversations,
   type Conversation,
@@ -351,6 +352,7 @@ function Pagination({ page, totalPages, onPageChange }: PaginationProps) {
 }
 
 export default function Home() {
+  const router = useRouter();
   const [results, setResults] = useState<SearchResults<Conversation> | null>(
     null
   );
@@ -368,8 +370,7 @@ export default function Home() {
     setError(null);
 
     try {
-      const data = await searchConversations(searchQuery || 
-      const data = await searchConversations("*", filters, {
+      const data = await searchConversations(searchQuery || "*", filters, {
         page,
         perPage: 20,
       });
@@ -411,6 +412,13 @@ export default function Home() {
     setPage(1); // Reset to first page when filters change
   };
 
+  const handleSearchSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (searchQuery.trim()) {
+      router.push(`/search?q=${encodeURIComponent(searchQuery)}`);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-zinc-50 dark:bg-black">
       <header className="bg-white dark:bg-zinc-950 border-b border-zinc-200 dark:border-zinc-800">
@@ -423,10 +431,10 @@ export default function Home() {
               AI Conversation History
             </p>
           </div>
-          <div className="flex gap-3 w-full md:w-auto">
+          <form onSubmit={handleSearchSubmit} className="flex gap-3 w-full md:w-auto">
             <input
               type="text"
-              placeholder="Search conversations..."
+              placeholder="Search conversations (Enter for messages)..."
               value={searchQuery}
               onChange={(e) => {
                 setSearchQuery(e.target.value);
@@ -434,13 +442,13 @@ export default function Home() {
               }}
               className="px-3 py-1.5 text-sm bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 w-full md:w-64"
             />
-            <Link
-              href="/search"
+            <button
+              type="submit"
               className="px-3 py-1.5 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 whitespace-nowrap"
             >
               Search Messages
-            </Link>
-          </div>
+            </button>
+          </form>
         </div>
       </header>
 

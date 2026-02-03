@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useEffect } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import {
   searchMessages,
   type Message,
@@ -49,8 +50,11 @@ function HighlightedSnippet({ snippet }: { snippet: string }) {
 }
 
 export default function SearchPage() {
+  const searchParams = useSearchParams();
+  const initialQuery = searchParams.get("q") || "";
+
   const [searchState, setSearchState] = useState<SearchState>({
-    query: "",
+    query: initialQuery,
     results: [],
     total: 0,
     page: 1,
@@ -66,7 +70,7 @@ export default function SearchPage() {
     machineId: "",
   });
 
-  const [inputValue, setInputValue] = useState("");
+  const [inputValue, setInputValue] = useState(initialQuery);
 
   const executeSearch = useCallback(
     async (query: string, page: number = 1) => {
@@ -131,6 +135,16 @@ export default function SearchPage() {
       executeSearch(searchState.query, 1);
     }
   }, [filters]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Initial search from URL params
+  useEffect(() => {
+    const q = searchParams.get("q");
+    if (q && q !== searchState.query) {
+      setInputValue(q);
+      executeSearch(q, 1);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
 
   const handlePageChange = (newPage: number) => {
     if (newPage >= 1 && newPage <= searchState.totalPages) {

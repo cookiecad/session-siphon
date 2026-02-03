@@ -9,6 +9,7 @@ import {
   type ConversationFilters,
   type SearchResults,
 } from "@/lib/typesense";
+import { SearchableSelect } from "@/components/SearchableSelect";
 
 function formatTimestamp(ts: number): string {
   const date = new Date(ts * 1000);
@@ -107,76 +108,55 @@ function Filters({
 }: FiltersProps) {
   return (
     <div className="flex flex-wrap gap-4 p-4 border-b border-zinc-200 dark:border-zinc-800 items-end">
-      <div className="flex flex-col gap-1">
+      <div className="flex flex-col gap-1 w-48">
         <label
           htmlFor="source-filter"
           className="text-xs font-medium text-zinc-500 dark:text-zinc-400"
         >
           Source
         </label>
-        <select
-          id="source-filter"
+        <SearchableSelect
           value={filters.source || ""}
-          onChange={(e) =>
-            onFilterChange({ ...filters, source: e.target.value || undefined })
+          onChange={(val) =>
+            onFilterChange({ ...filters, source: val || undefined })
           }
-          className="px-3 py-1.5 text-sm bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-        >
-          <option value="">All Sources</option>
-          {sources.map((source) => (
-            <option key={source} value={source}>
-              {formatSourceName(source)}
-            </option>
-          ))}
-        </select>
+          options={sources.map(s => ({ value: s, label: formatSourceName(s) }))}
+          placeholder="All Sources"
+        />
       </div>
 
-      <div className="flex flex-col gap-1">
+      <div className="flex flex-col gap-1 w-48">
         <label
           htmlFor="machine-filter"
           className="text-xs font-medium text-zinc-500 dark:text-zinc-400"
         >
           Source Machine
         </label>
-        <select
-          id="machine-filter"
+        <SearchableSelect
           value={filters.machineId || ""}
-          onChange={(e) =>
-            onFilterChange({ ...filters, machineId: e.target.value || undefined })
+          onChange={(val) =>
+            onFilterChange({ ...filters, machineId: val || undefined })
           }
-          className="px-3 py-1.5 text-sm bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-        >
-          <option value="">All Machines</option>
-          {machineIds.map((machineId) => (
-            <option key={machineId} value={machineId}>
-              {machineId}
-            </option>
-          ))}
-        </select>
+          options={machineIds.map(m => ({ value: m, label: m }))}
+          placeholder="All Machines"
+        />
       </div>
 
-      <div className="flex flex-col gap-1">
+      <div className="flex flex-col gap-1 w-64">
         <label
           htmlFor="project-filter"
           className="text-xs font-medium text-zinc-500 dark:text-zinc-400"
         >
           Project
         </label>
-        <select
-          id="project-filter"
+        <SearchableSelect
           value={filters.project || ""}
-          onChange={(e) =>
-            onFilterChange({ ...filters, project: e.target.value || undefined })
+          onChange={(val) =>
+            onFilterChange({ ...filters, project: val || undefined })
           }
-          className="px-3 py-1.5 text-sm bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-        >
-          <option value="">All Projects</option>
-          {projects.map((project) => (
-            <option key={project} value={project}>
-              {getProjectName(project)}
-            </option>
-          ))}
-        </select>
+          options={projects.map(p => ({ value: p, label: getProjectName(p) }))}
+          placeholder="All Projects"
+        />
       </div>
 
       <div className="flex items-center gap-2 pb-2">
@@ -449,26 +429,28 @@ export default function Home() {
               AI Conversation History
             </p>
           </div>
-          <form onSubmit={handleSearchSubmit} className="flex gap-3 w-full md:w-auto">
-            <input
-              type="text"
-              placeholder="Search conversations (Enter for messages)..."
-              value={searchQuery}
-              onChange={(e) => {
-                setSearchQuery(e.target.value);
-                setPage(1);
-              }}
-              className="px-3 py-1.5 text-sm bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 w-full md:w-64"
-            />
-            <button
-              type="submit"
-              className="px-3 py-1.5 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 whitespace-nowrap"
-            >
-              Search Messages
-            </button>
-          </form>
-          <div className="absolute top-full right-4 mt-1 text-[10px] text-zinc-400 dark:text-zinc-500 hidden md:block text-right">
-              Supported: "exact phrase", -exclude, prefix*
+          <div className="flex flex-col items-end gap-1 w-full md:w-auto">
+            <form onSubmit={handleSearchSubmit} className="flex gap-3 w-full">
+              <input
+                type="text"
+                placeholder="Search conversations..."
+                value={searchQuery}
+                onChange={(e) => {
+                  setSearchQuery(e.target.value);
+                  setPage(1);
+                }}
+                className="px-3 py-1.5 text-sm bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 w-full md:w-64"
+              />
+              <button
+                type="submit"
+                className="px-3 py-1.5 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 whitespace-nowrap"
+              >
+                Search Messages
+              </button>
+            </form>
+            <div className="text-[10px] text-zinc-400 dark:text-zinc-500 text-right">
+                Supported: "exact phrase", -exclude, prefix*
+            </div>
           </div>
         </div>
       </header>

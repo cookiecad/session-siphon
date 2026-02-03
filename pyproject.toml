@@ -20,6 +20,7 @@ dev = [
 [project.scripts]
 siphon-collector = "session_siphon.collector.__main__:main"
 siphon-processor = "session_siphon.processor.__main__:main"
+siphon-search = "session_siphon.search.__main__:main"
 
 [build-system]
 requires = ["hatchling"]

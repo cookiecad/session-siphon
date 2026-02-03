@@ -61,6 +61,14 @@ def test_config(tmp_path: Path) -> Config:
     )
 
 
+@pytest.fixture
+def mock_indexer() -> MagicMock:
+    """Create a mock indexer that succeeds."""
+    indexer = MagicMock()
+    indexer.upsert_messages.return_value = {"success": 1, "failed": 0}
+    return indexer
+
+
 class TestShutdownFlags:
     """Tests for shutdown flag management."""
 
@@ -252,7 +260,8 @@ class TestProcessFile:
         assert result["messages"] == 0
 
     def test_parses_claude_code_file(
-        self, tmp_inbox: Path, tmp_archive: Path, tmp_state: ProcessorState
+        self, tmp_inbox: Path, tmp_archive: Path, tmp_state: ProcessorState,
+        mock_indexer: MagicMock,
     ) -> None:
         """Should parse claude_code files successfully."""
         # Create a claude_code file in the proper structure
@@ -269,7 +278,7 @@ class TestProcessFile:
             tmp_inbox,
             tmp_archive,
             tmp_state,
-            indexer=None,
+            indexer=mock_indexer,
             stability_seconds=0,  # Archive immediately
         )
 
@@ -277,7 +286,8 @@ class TestProcessFile:
         assert result["archived"] == 1  # Should be archived since stability_seconds=0
 
     def test_updates_state_after_processing(
-        self, tmp_inbox: Path, tmp_archive: Path, tmp_state: ProcessorState
+        self, tmp_inbox: Path, tmp_archive: Path, tmp_state: ProcessorState,
+        mock_indexer: MagicMock,
     ) -> None:
         """Should update processor state after processing."""
         (tmp_inbox / "machine1" / "claude_code").mkdir(parents=True)
@@ -294,7 +304,7 @@ class TestProcessFile:
             tmp_inbox,
             tmp_archive,
             tmp_state,
-            indexer=None,
+            indexer=mock_indexer,
             stability_seconds=999999,  # Don't archive
         )
 
@@ -305,7 +315,8 @@ class TestProcessFile:
         assert state.last_processed is not None
 
     def test_does_not_archive_active_file(
-        self, tmp_inbox: Path, tmp_archive: Path, tmp_state: ProcessorState
+        self, tmp_inbox: Path, tmp_archive: Path, tmp_state: ProcessorState,
+        mock_indexer: MagicMock,
     ) -> None:
         """Should not archive files that are still active."""
         (tmp_inbox / "machine1" / "claude_code").mkdir(parents=True)
@@ -319,19 +330,76 @@ class TestProcessFile:
             tmp_inbox,
             tmp_archive,
             tmp_state,
-            indexer=None,
+            indexer=mock_indexer,
             stability_seconds=999999,  # File won't be stable
         )
 
         assert result["archived"] == 0
         assert file_path.exists()  # File should still be in inbox
 
+    def test_skips_state_update_when_no_indexer(
+        self, tmp_inbox: Path, tmp_archive: Path, tmp_state: ProcessorState,
+    ) -> None:
+        """Should not advance state offset when indexer is unavailable."""
+        (tmp_inbox / "machine1" / "claude_code").mkdir(parents=True)
+        file_path = tmp_inbox / "machine1" / "claude_code" / "conv.jsonl"
+        file_path.write_bytes(
+            b'{"type":"user","message":{"role":"user","content":"test"},"timestamp":"2024-01-01T00:00:00Z","uuid":"abc"}\n'
+        )
+
+        result = process_file(
+            file_path,
+            tmp_inbox,
+            tmp_archive,
+            tmp_state,
+            indexer=None,
+            stability_seconds=0,
+        )
+
+        assert result["messages"] >= 1
+        assert result["indexed"] == 0
+        assert result["archived"] == 0  # Should NOT archive without indexing
+        assert file_path.exists()  # File should remain in inbox
+        # State should not be updated
+        state = tmp_state.get_file_state(str(file_path))
+        assert state is None
+
+    def test_skips_archive_when_indexing_fails(
+        self, tmp_inbox: Path, tmp_archive: Path, tmp_state: ProcessorState,
+    ) -> None:
+        """Should not archive or advance state when indexing raises an error."""
+        (tmp_inbox / "machine1" / "claude_code").mkdir(parents=True)
+        file_path = tmp_inbox / "machine1" / "claude_code" / "conv.jsonl"
+        file_path.write_bytes(
+            b'{"type":"user","message":{"role":"user","content":"test"},"timestamp":"2024-01-01T00:00:00Z","uuid":"abc"}\n'
+        )
+
+        failing_indexer = MagicMock()
+        failing_indexer.upsert_messages.side_effect = Exception("Typesense down")
+
+        result = process_file(
+            file_path,
+            tmp_inbox,
+            tmp_archive,
+            tmp_state,
+            indexer=failing_indexer,
+            stability_seconds=0,
+        )
+
+        assert result["messages"] >= 1
+        assert result["indexed"] == 0
+        assert result["archived"] == 0
+        assert file_path.exists()
+        state = tmp_state.get_file_state(str(file_path))
+        assert state is None
+
 
 class TestRunProcessorCycle:
     """Tests for run_processor_cycle function."""
 
     def test_processes_files_in_inbox(
-        self, tmp_inbox: Path, tmp_archive: Path, tmp_state: ProcessorState
+        self, tmp_inbox: Path, tmp_archive: Path, tmp_state: ProcessorState,
+        mock_indexer: MagicMock,
     ) -> None:
         """Should process all files in inbox."""
         # Create test files
@@ -344,7 +412,7 @@ class TestRunProcessorCycle:
             tmp_inbox,
             tmp_archive,
             tmp_state,
-            indexer=None,
+            indexer=mock_indexer,
             stability_seconds=999999,
         )
 
@@ -508,7 +576,7 @@ class TestMainModule:
 class TestIntegration:
     """Integration tests for the processor daemon."""
 
-    def test_full_process_cycle(self, tmp_path: Path) -> None:
+    def test_full_process_cycle(self, tmp_path: Path, mock_indexer: MagicMock) -> None:
         """Should perform full processing cycle with real files."""
         # Setup
         inbox = tmp_path / "inbox"
@@ -532,7 +600,7 @@ class TestIntegration:
                 inbox,
                 archive,
                 state,
-                indexer=None,
+                indexer=mock_indexer,
                 stability_seconds=0,  # Archive immediately
             )
 

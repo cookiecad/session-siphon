@@ -1,6 +1,7 @@
 """Configuration loading and management."""
 
 import os
+import platform
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -42,6 +43,14 @@ class Config:
     collector: CollectorConfig = field(default_factory=CollectorConfig)
     server: ServerConfig = field(default_factory=ServerConfig)
     typesense: TypesenseConfig = field(default_factory=TypesenseConfig)
+
+
+def expand_env_var(value: str) -> str:
+    """Expand environment variables in string (e.g. ${VAR})."""
+    if value.startswith("${") and value.endswith("}"):
+        env_var = value[2:-1]
+        return os.environ.get(env_var, value)
+    return value
 
 
 def expand_path(path_str: str) -> Path:
@@ -95,10 +104,7 @@ def load_config(config_path: Path | None = None) -> Config:
 
     # Parse typesense config
     ts_data = data.get("typesense", {})
-    api_key = ts_data.get("api_key", "dev-api-key")
-    if api_key.startswith("${") and api_key.endswith("}"):
-        env_var = api_key[2:-1]
-        api_key = os.environ.get(env_var, "dev-api-key")
+    api_key = expand_env_var(ts_data.get("api_key", "dev-api-key"))
 
     typesense = TypesenseConfig(
         host=ts_data.get("host", "localhost"),
@@ -107,8 +113,13 @@ def load_config(config_path: Path | None = None) -> Config:
         api_key=api_key,
     )
 
+    # Determine machine_id
+    machine_id = expand_env_var(data.get("machine_id", "unknown"))
+    if machine_id == "unknown" or not machine_id:
+        machine_id = platform.node()
+
     return Config(
-        machine_id=data.get("machine_id", "unknown"),
+        machine_id=machine_id,
         collector=collector,
         server=server,
         typesense=typesense,

@@ -99,6 +99,20 @@ class TestGetCodexPaths:
         assert rollout2 in result
         assert other not in result
 
+    def test_discovers_archived_sessions(self, tmp_path: Path) -> None:
+        """Should discover rollout-*.jsonl files in archived_sessions."""
+        # Create test structure: ~/.codex/archived_sessions/rollout-*.jsonl
+        archived_dir = tmp_path / ".codex" / "archived_sessions"
+        archived_dir.mkdir(parents=True)
+
+        rollout_archived = archived_dir / "rollout-archived.jsonl"
+        rollout_archived.touch()
+
+        with patch.object(Path, "home", return_value=tmp_path):
+            result = get_codex_paths()
+
+        assert rollout_archived in result
+
     def test_wrong_depth_not_matched(self, tmp_path: Path) -> None:
         """Files at wrong directory depth should not be matched."""
         sessions_dir = tmp_path / ".codex" / "sessions"

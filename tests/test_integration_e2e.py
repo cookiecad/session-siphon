@@ -1025,8 +1025,8 @@ class TestErrorRecovery:
                 stability_seconds=0,
             )
 
-        # Should still process and archive, just fail indexing
+        # Should process but NOT archive when indexing fails
         assert totals["files"] == 1
         assert totals["messages"] >= 1
         assert totals["indexed"] == 0  # Failed to index
-        assert totals["archived"] == 1  # Still archived
+        assert totals["archived"] == 0  # Not archived — retry on next cycle

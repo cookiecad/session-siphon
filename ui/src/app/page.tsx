@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import Link from "next/link";
 import {
   searchConversations,
   type Conversation,
@@ -353,7 +354,7 @@ export default function Home() {
   const [results, setResults] = useState<SearchResults<Conversation> | null>(
     null
   );
-  const [filters, setFilters] = useState<ConversationFilters>({});
+  const [searchQuery, setSearchQuery] = useState("");
   const [groupByProject, setGroupByProject] = useState(true);
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
@@ -367,6 +368,7 @@ export default function Home() {
     setError(null);
 
     try {
+      const data = await searchConversations(searchQuery || 
       const data = await searchConversations("*", filters, {
         page,
         perPage: 20,
@@ -395,10 +397,13 @@ export default function Home() {
     } finally {
       setLoading(false);
     }
-  }, [filters, page]);
+  }, [filters, page, searchQuery]);
 
   useEffect(() => {
-    fetchConversations();
+    const timer = setTimeout(() => {
+      fetchConversations();
+    }, 300);
+    return () => clearTimeout(timer);
   }, [fetchConversations]);
 
   const handleFilterChange = (newFilters: ConversationFilters) => {
@@ -409,13 +414,33 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-zinc-50 dark:bg-black">
       <header className="bg-white dark:bg-zinc-950 border-b border-zinc-200 dark:border-zinc-800">
-        <div className="max-w-4xl mx-auto px-4 py-4">
-          <h1 className="text-xl font-semibold text-zinc-900 dark:text-zinc-100">
-            Session Siphon
-          </h1>
-          <p className="text-sm text-zinc-600 dark:text-zinc-400">
-            AI Conversation History
-          </p>
+        <div className="max-w-4xl mx-auto px-4 py-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-xl font-semibold text-zinc-900 dark:text-zinc-100">
+              Session Siphon
+            </h1>
+            <p className="text-sm text-zinc-600 dark:text-zinc-400">
+              AI Conversation History
+            </p>
+          </div>
+          <div className="flex gap-3 w-full md:w-auto">
+            <input
+              type="text"
+              placeholder="Search conversations..."
+              value={searchQuery}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+                setPage(1);
+              }}
+              className="px-3 py-1.5 text-sm bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 w-full md:w-64"
+            />
+            <Link
+              href="/search"
+              className="px-3 py-1.5 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 whitespace-nowrap"
+            >
+              Search Messages
+            </Link>
+          </div>
         </div>
       </header>
 

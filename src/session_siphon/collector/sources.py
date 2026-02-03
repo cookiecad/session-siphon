@@ -23,13 +23,23 @@ def get_claude_code_paths() -> list[Path]:
 def get_codex_paths() -> list[Path]:
     """Discover Codex conversation files.
 
-    Location: ~/.codex/sessions/*/*/*/rollout-*.jsonl
+    Location:
+    - ~/.codex/sessions/*/*/*/rollout-*.jsonl
+    - ~/.codex/archived_sessions/rollout-*.jsonl
     """
-    base_path = Path.home() / ".codex" / "sessions"
-    if not base_path.exists():
-        return []
+    paths: list[Path] = []
 
-    return sorted(base_path.glob("*/*/*/rollout-*.jsonl"))
+    # Check sessions (nested structure)
+    sessions_path = Path.home() / ".codex" / "sessions"
+    if sessions_path.exists():
+        paths.extend(sessions_path.glob("*/*/*/rollout-*.jsonl"))
+
+    # Check archived sessions
+    archived_path = Path.home() / ".codex" / "archived_sessions"
+    if archived_path.exists():
+        paths.extend(archived_path.glob("rollout-*.jsonl"))
+
+    return sorted(paths)
 
 
 def get_vscode_copilot_paths() -> list[Path]:
@@ -86,17 +96,18 @@ def get_gemini_cli_paths() -> list[Path]:
 def get_opencode_paths() -> list[Path]:
     """Discover OpenCode (SST) conversation session files.
 
-    Location: ~/.opencode/project/*/session/*/*.json
+    Location: ~/.local/share/opencode/storage/session/*/ses_*.json
 
-    OpenCode stores sessions in a hierarchical structure:
-    - ~/.opencode/project/<projectID>/session/<projectID>/<sessionID>.json
-    - Messages and parts are in sibling directories and loaded by the parser
+    OpenCode stores sessions in a hierarchical structure under its storage root:
+    - storage/session/<projectHash>/ses_<sessionID>.json
+    - storage/message/<sessionID>/msg_<messageID>.json (loaded by parser)
+    - storage/part/<messageID>/prt_<partID>.json (loaded by parser)
     """
-    base_path = Path.home() / ".opencode" / "project"
+    base_path = Path.home() / ".local" / "share" / "opencode" / "storage" / "session"
     if not base_path.exists():
         return []
 
-    return sorted(base_path.glob("*/session/*/*.json"))
+    return sorted(base_path.glob("*/ses_*.json"))
 
 
 def get_antigravity_paths() -> list[Path]:

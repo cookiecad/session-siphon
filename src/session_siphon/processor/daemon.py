@@ -244,6 +244,7 @@ def process_file(
     result["messages"] = len(messages)
 
     # Index messages
+    indexed_ok = not messages  # No messages means nothing to index — OK to advance
     if indexer is not None and messages:
         try:
             index_result = indexer.upsert_messages(messages)
@@ -253,11 +254,20 @@ def process_file(
                 logger.error(
                     "Failed to index messages: failed=%d path=%s", failed, file_path
                 )
+            else:
+                indexed_ok = True
 
             # Update conversation metadata
             _update_conversation_from_messages(indexer, messages)
         except Exception:
             logger.exception("Error indexing messages: path=%s", file_path)
+    elif messages and indexer is None:
+        logger.warning(
+            "Skipping %d messages (no indexer): path=%s", len(messages), file_path
+        )
+
+    if not indexed_ok:
+        return result
 
     # Update state with new offset
     current_time = int(time.time())

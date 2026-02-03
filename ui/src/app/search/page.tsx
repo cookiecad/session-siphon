@@ -23,6 +23,7 @@ interface Filters {
   source: string;
   project: string;
   role: string;
+  machineId: string;
 }
 
 const SOURCES = ["", "claude_code", "codex", "vscode_copilot", "gemini_cli"];
@@ -62,6 +63,7 @@ export default function SearchPage() {
     source: "",
     project: "",
     role: "",
+    machineId: "",
   });
 
   const [inputValue, setInputValue] = useState("");
@@ -87,6 +89,7 @@ export default function SearchPage() {
         if (filters.source) messageFilters.source = filters.source;
         if (filters.project) messageFilters.project = filters.project;
         if (filters.role) messageFilters.role = filters.role;
+        if (filters.machineId) messageFilters.machineId = filters.machineId;
 
         const results = await searchMessages(query, messageFilters, {
           page,
@@ -223,6 +226,19 @@ export default function SearchPage() {
               className="rounded border border-zinc-300 bg-white px-3 py-1.5 text-sm text-zinc-900 placeholder-zinc-400 focus:border-zinc-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100 dark:placeholder-zinc-500"
             />
           </div>
+
+          <div className="flex flex-1 flex-col gap-1">
+            <label className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
+              Source Machine
+            </label>
+            <input
+              type="text"
+              value={filters.machineId}
+              onChange={(e) => handleFilterChange("machineId", e.target.value)}
+              placeholder="Filter by machine ID..."
+              className="rounded border border-zinc-300 bg-white px-3 py-1.5 text-sm text-zinc-900 placeholder-zinc-400 focus:border-zinc-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100 dark:placeholder-zinc-500"
+            />
+          </div>
         </div>
 
         {/* Error Display */}
@@ -250,6 +266,9 @@ export default function SearchPage() {
               <div className="mb-2 flex flex-wrap items-center gap-2 text-xs">
                 <span className="rounded bg-zinc-100 px-2 py-0.5 font-medium text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">
                   {hit.document.source.replace(/_/g, " ")}
+                </span>
+                <span className="rounded bg-zinc-100 px-2 py-0.5 font-medium text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 font-mono">
+                  {hit.document.machine_id}
                 </span>
                 <span className="rounded bg-blue-100 px-2 py-0.5 font-medium text-blue-700 dark:bg-blue-900/50 dark:text-blue-300">
                   {hit.document.role}

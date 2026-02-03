@@ -14,6 +14,7 @@ collector:
       enabled: true
       paths:
         - "~/.codex/sessions/*/*/*/*.jsonl"
+        - "~/.codex/archived_sessions/rollout-*.jsonl"
     vscode:
       enabled: true
       paths:
@@ -28,12 +29,11 @@ collector:
     opencode:
       enabled: true
       paths:
-        - "~/.opencode/project/*/session/*/*.json"
+        - "~/.local/share/opencode/storage/session/*/ses_*.json"
     antigravity:
       enabled: true
       paths:
-        - "~/.gemini/antigravity/conversations/*.json"
-        - "~/.gemini/antigravity/brain/*/*.json"
+        - "~/.gemini/antigravity/brain/*/*.metadata.json"
 
 server:
   inbox_path: "~/session-siphon/inbox"

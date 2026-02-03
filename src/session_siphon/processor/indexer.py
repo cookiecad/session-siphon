@@ -151,3 +151,101 @@ class TypesenseIndexer:
         except Exception:
             logger.exception("Failed to update conversation: id=%s", doc.get("id", "unknown"))
             return False
+
+    def search_messages(
+        self,
+        query: str,
+        page: int = 1,
+        per_page: int = 10,
+        filters: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Search for messages.
+
+        Args:
+            query: Search query string (use "*" for all)
+            page: Page number (1-based)
+            per_page: Number of results per page
+            filters: dictionary of filters (source, machine_id, project, conversation_id, role, start_ts, end_ts)
+
+        Returns:
+            Search results from Typesense
+        """
+        search_params = {
+            "q": query,
+            "query_by": "content",
+            "page": page,
+            "per_page": per_page,
+            "sort_by": "ts:desc",
+        }
+
+        if filters:
+            filter_parts = []
+            if "source" in filters:
+                filter_parts.append(f"source:={filters['source']}")
+            if "machine_id" in filters:
+                filter_parts.append(f"machine_id:={filters['machine_id']}")
+            if "project" in filters:
+                project = filters["project"]
+                # Escape special characters in project path if necessary, but exact match is safer
+                filter_parts.append(f"project:={project}")
+            if "conversation_id" in filters:
+                filter_parts.append(f"conversation_id:={filters['conversation_id']}")
+            if "role" in filters:
+                filter_parts.append(f"role:={filters['role']}")
+            if "start_ts" in filters:
+                filter_parts.append(f"ts:>={filters['start_ts']}")
+            if "end_ts" in filters:
+                filter_parts.append(f"ts:<={filters['end_ts']}")
+
+            if filter_parts:
+                search_params["filter_by"] = " && ".join(filter_parts)
+
+        return self._client.collections["messages"].documents.search(search_params)
+
+    def search_conversations(
+        self,
+        query: str,
+        page: int = 1,
+        per_page: int = 10,
+        filters: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Search for conversations.
+
+        Args:
+            query: Search query string (use "*" for all)
+            page: Page number (1-based)
+            per_page: Number of results per page
+            filters: dictionary of filters (source, machine_id, project, start_ts, end_ts)
+
+        Returns:
+            Search results from Typesense
+        """
+        search_params = {
+            "q": query,
+            "query_by": "title,preview",
+            "page": page,
+            "per_page": per_page,
+            "sort_by": "last_ts:desc",
+        }
+
+        if filters:
+            filter_parts = []
+            if "source" in filters:
+                filter_parts.append(f"source:={filters['source']}")
+            if "machine_id" in filters:
+                filter_parts.append(f"machine_id:={filters['machine_id']}")
+            if "project" in filters:
+                project = filters["project"]
+                filter_parts.append(f"project:={project}")
+            if "start_ts" in filters:
+                # For conversations, we compare against last_ts for start_ts (recency)
+                # or maybe first_ts? Let's use last_ts for "active recently"
+                filter_parts.append(f"last_ts:>={filters['start_ts']}")
+            if "end_ts" in filters:
+                filter_parts.append(f"first_ts:<={filters['end_ts']}")
+
+            if filter_parts:
+                search_params["filter_by"] = " && ".join(filter_parts)
+
+        return self._client.collections["conversations"].documents.search(search_params)
+

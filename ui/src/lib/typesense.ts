@@ -103,6 +103,7 @@ export interface SearchResults<T> {
   page: number;
   perPage: number;
   totalPages: number;
+  facetCounts?: Record<string, Array<{ value: string; count: number }>>;
 }
 
 /**
@@ -110,6 +111,13 @@ export interface SearchResults<T> {
  */
 interface TypesenseSearchResponse<T> {
   found: number;
+  facet_counts?: Array<{
+    field_name: string;
+    counts: Array<{
+      value: string;
+      count: number;
+    }>;
+  }>;
   hits: Array<{
     document: T;
     highlights?: Array<{
@@ -248,12 +256,20 @@ function transformResponse<T>(
 
   const totalPages = Math.ceil(response.found / perPage);
 
+  const facetCounts: Record<string, Array<{ value: string; count: number }>> = {};
+  if (response.facet_counts) {
+    for (const facet of response.facet_counts) {
+      facetCounts[facet.field_name] = facet.counts;
+    }
+  }
+
   return {
     hits,
     found: response.found,
     page: response.page,
     perPage,
     totalPages,
+    facetCounts,
   };
 }
 
@@ -333,6 +349,8 @@ export async function searchConversations(
     page,
     per_page: perPage,
     sort_by: "last_ts:desc",
+    facet_by: "source,project,machine_id",
+    max_facet_values: 100, // Reasonable limit for dropdowns
   };
 
   const filterStr = buildConversationFilterString(filters);

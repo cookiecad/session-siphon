@@ -377,9 +377,26 @@ export default function Home() {
       });
       setResults(data);
 
-      // Extract unique sources and projects from results for filter options
-      // Only update if we have no filters applied (to get full list)
-      if (!filters.source && !filters.project && !filters.machineId) {
+      // Extract unique sources and projects from facet counts
+      // Only update if we have no filters applied (to get full list of options)
+      if (data.facetCounts && !filters.source && !filters.project && !filters.machineId) {
+        if (data.facetCounts["source"]) {
+          setAvailableSources(
+            data.facetCounts["source"].map((f) => f.value).sort()
+          );
+        }
+        if (data.facetCounts["project"]) {
+          setAvailableProjects(
+            data.facetCounts["project"].map((f) => f.value).sort()
+          );
+        }
+        if (data.facetCounts["machine_id"]) {
+          setAvailableMachineIds(
+            data.facetCounts["machine_id"].map((f) => f.value).sort()
+          );
+        }
+      } else if (!data.facetCounts && !filters.source && !filters.project && !filters.machineId) {
+        // Fallback to extraction from hits if facets are missing (should generally not happen)
         const sources = new Set<string>();
         const projects = new Set<string>();
         const machineIds = new Set<string>();

@@ -188,6 +188,10 @@ export default function SearchPage() {
               {searchState.loading ? "Searching..." : "Search"}
             </button>
           </div>
+          <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
+            Tip: Use <code className="bg-zinc-100 dark:bg-zinc-800 px-1 rounded">"exact phrase"</code> to match exact phrases, 
+            <code className="bg-zinc-100 dark:bg-zinc-800 px-1 rounded ml-1">-exclude</code> to exclude words.
+          </p>
         </form>
 
         {/* Faceted Filters */}

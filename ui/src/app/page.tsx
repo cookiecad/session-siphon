@@ -357,6 +357,7 @@ export default function Home() {
     null
   );
   const [searchQuery, setSearchQuery] = useState("");
+  const [filters, setFilters] = useState<ConversationFilters>({});
   const [groupByProject, setGroupByProject] = useState(true);
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
@@ -449,6 +450,9 @@ export default function Home() {
               Search Messages
             </button>
           </form>
+          <div className="absolute top-full right-4 mt-1 text-[10px] text-zinc-400 dark:text-zinc-500 hidden md:block text-right">
+              Supported: "exact phrase", -exclude, prefix*
+          </div>
         </div>
       </header>
 

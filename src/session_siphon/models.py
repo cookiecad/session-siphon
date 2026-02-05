@@ -16,6 +16,7 @@ class CanonicalMessage:
     role: str  # user, assistant, tool, system
     content: str
     raw_path: str  # Path to source file in archive
+    git_repo: str | None = None  # Git repository identifier (owner/repo)
     raw_offset: int | None = None  # Byte offset for JSONL files
 
     @property
@@ -41,6 +42,7 @@ class CanonicalMessage:
             "content": self.content,
             "content_hash": self.content_hash,
             "raw_path": self.raw_path,
+            "git_repo": self.git_repo,
             "raw_offset": self.raw_offset or 0,
         }
 
@@ -58,6 +60,7 @@ class Conversation:
     message_count: int
     title: str
     preview: str
+    git_repo: str | None = None
 
     @property
     def id(self) -> str:
@@ -76,5 +79,6 @@ class Conversation:
             "last_ts": self.last_ts,
             "message_count": self.message_count,
             "title": self.title,
+            "git_repo": self.git_repo,
             "preview": self.preview,
         }

@@ -20,6 +20,7 @@ The workspace path is extracted from workspace.json in the parent directory.
 import json
 from pathlib import Path
 
+from session_siphon.processor.git_utils import get_git_repo_info
 from session_siphon.processor.parsers.base import CanonicalMessage, Parser
 
 
@@ -72,19 +73,22 @@ class VSCodeCopilotParser(Parser):
         # Extract workspace/project path
         project = self._extract_workspace(path)
 
+        # Extract git repository info
+        git_repo = get_git_repo_info(project)
+
         # Process each request in the session
         requests = data.get("requests", [])
         for request in requests:
             # Extract user message
             user_msg = self._extract_user_message(
-                request, session_id, machine_id, project, str(path)
+                request, session_id, machine_id, project, str(path), git_repo
             )
             if user_msg:
                 messages.append(user_msg)
 
             # Extract assistant response(s)
             assistant_msgs = self._extract_assistant_messages(
-                request, session_id, machine_id, project, str(path)
+                request, session_id, machine_id, project, str(path), git_repo
             )
             messages.extend(assistant_msgs)
 
@@ -129,6 +133,7 @@ class VSCodeCopilotParser(Parser):
         machine_id: str,
         project: str,
         raw_path: str,
+        git_repo: str | None,
     ) -> CanonicalMessage | None:
         """Extract user message from a request.
 
@@ -138,6 +143,7 @@ class VSCodeCopilotParser(Parser):
             machine_id: Machine identifier
             project: Project/workspace path
             raw_path: Path to source file
+            git_repo: Git repository identifier
 
         Returns:
             CanonicalMessage for user, or None if no valid message
@@ -162,6 +168,7 @@ class VSCodeCopilotParser(Parser):
             content=text,
             raw_path=raw_path,
             raw_offset=None,
+            git_repo=git_repo,
         )
 
     def _extract_assistant_messages(
@@ -170,7 +177,7 @@ class VSCodeCopilotParser(Parser):
         session_id: str,
         machine_id: str,
         project: str,
-        raw_path: str,
+        git_repo: str | None,
     ) -> list[CanonicalMessage]:
         """Extract assistant messages from a request's response.
 
@@ -179,6 +186,8 @@ class VSCodeCopilotParser(Parser):
             session_id: Session identifier
             machine_id: Machine identifier
             project: Project/workspace path
+            raw_path: Path to source file
+            git_repo: Git repository identifierth
             raw_path: Path to source file
 
         Returns:
@@ -232,6 +241,7 @@ class VSCodeCopilotParser(Parser):
                     ts=ts,
                     role="assistant",
                     content=combined_content,
+                    git_repo=git_repo,
                     raw_path=raw_path,
                     raw_offset=None,
                 )

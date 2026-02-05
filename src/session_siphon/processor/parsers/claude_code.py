@@ -16,6 +16,7 @@ import json
 from datetime import datetime
 from pathlib import Path
 
+from session_siphon.processor.git_utils import get_git_repo_info
 from session_siphon.processor.parsers.base import CanonicalMessage, Parser
 
 
@@ -84,6 +85,9 @@ class ClaudeCodeParser(Parser):
                 # Extract project from cwd field
                 project = entry.get("cwd", "")
 
+                # Extract git repository info
+                git_repo = get_git_repo_info(project) if project else None
+
                 messages.append(
                     CanonicalMessage(
                         source=self.source_name,
@@ -95,6 +99,7 @@ class ClaudeCodeParser(Parser):
                         content=content,
                         raw_path=str(path),
                         raw_offset=line_offset,
+                        git_repo=git_repo,
                     )
                 )
 

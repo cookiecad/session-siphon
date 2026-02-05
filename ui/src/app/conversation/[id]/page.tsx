@@ -26,7 +26,7 @@ export default async function ConversationPage({
   const { id } = await params;
   const decodedId = decodeURIComponent(id);
 
-  const results = await getConversationMessages(decodedId, { perPage: 500 });
+  const results = await getConversationMessages(decodedId, { perPage: 250 });
   const messages = results.hits.map((hit) => hit.document);
 
   if (messages.length === 0) {

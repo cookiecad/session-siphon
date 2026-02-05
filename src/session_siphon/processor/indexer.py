@@ -24,6 +24,7 @@ MESSAGES_SCHEMA: dict[str, Any] = {
         {"name": "content", "type": "string"},
         {"name": "content_hash", "type": "string"},
         {"name": "raw_path", "type": "string"},
+        {"name": "git_repo", "type": "string", "facet": True, "optional": True},
         {"name": "raw_offset", "type": "int32"},
     ],
     "default_sorting_field": "ts",
@@ -42,6 +43,7 @@ CONVERSATIONS_SCHEMA: dict[str, Any] = {
         {"name": "message_count", "type": "int32"},
         {"name": "title", "type": "string"},
         {"name": "preview", "type": "string"},
+        {"name": "git_repo", "type": "string", "facet": True, "optional": True},
     ],
     "default_sorting_field": "last_ts",
 }

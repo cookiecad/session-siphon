@@ -18,6 +18,7 @@ import json
 from datetime import datetime
 from pathlib import Path
 
+from session_siphon.processor.git_utils import get_git_repo_info
 from session_siphon.processor.parsers.base import CanonicalMessage, Parser
 
 
@@ -50,6 +51,7 @@ class CodexParser(Parser):
 
         # Track metadata from session_meta event
         project = ""
+        git_repo = None
 
         with open(path, "rb") as f:
             # Seek to the starting offset for incremental parsing
@@ -76,6 +78,7 @@ class CodexParser(Parser):
                 if event_type == "session_meta":
                     payload = entry.get("payload", {})
                     project = payload.get("cwd", "")
+                    git_repo = get_git_repo_info(project) if project else None
                     # Use session id from payload if available
                     if payload.get("id"):
                         session_id = payload["id"]
@@ -93,6 +96,7 @@ class CodexParser(Parser):
                             session_id=session_id,
                             path=path,
                             line_offset=line_offset,
+                            git_repo=git_repo,
                         )
                         if msg:
                             messages.append(msg)
@@ -116,6 +120,7 @@ class CodexParser(Parser):
                                     content=content,
                                     raw_path=str(path),
                                     raw_offset=line_offset,
+                                    git_repo=git_repo,
                                 )
                             )
                     elif msg_type == "agent_message":
@@ -132,6 +137,7 @@ class CodexParser(Parser):
                                     content=content,
                                     raw_path=str(path),
                                     raw_offset=line_offset,
+                                    git_repo=git_repo,
                                 )
                             )
 
@@ -169,10 +175,7 @@ class CodexParser(Parser):
         payload: dict,
         ts: int,
         machine_id: str,
-        project: str,
-        session_id: str,
-        path: Path,
-        line_offset: int,
+        git_repo: str | None,
     ) -> CanonicalMessage | None:
         """Extract a message from a response_item payload.
 
@@ -180,6 +183,11 @@ class CodexParser(Parser):
             payload: The response_item payload
             ts: Unix timestamp
             machine_id: Machine identifier
+            project: Project/cwd path
+            session_id: Session identifier
+            path: Path to the source file
+            line_offset: Byte offset in the file
+            git_repo: Git repository identifier
             project: Project/cwd path
             session_id: Session identifier
             path: Path to the source file
@@ -209,6 +217,7 @@ class CodexParser(Parser):
             ts=ts,
             role=canonical_role,
             content=content,
+            git_repo=git_repo,
             raw_path=str(path),
             raw_offset=line_offset,
         )

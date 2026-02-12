@@ -8,7 +8,7 @@ import {
   type Message,
   type SearchHit,
   type MessageFilters,
-} from "@/lib/typesense";
+} from "@/lib/api";
 
 interface SearchState {
   query: string;

@@ -1,117 +1,40 @@
 /**
- * Typesense client library for Session Siphon.
+ * Server-side Typesense client for Session Siphon.
  *
- * Provides search functionality for messages and conversations
- * stored in Typesense.
+ * This module should only be imported by server components and API routes.
+ * Client components should use api.ts instead.
  */
 
-// Configuration from environment or defaults
-// NEXT_PUBLIC_ vars are baked in at build time and available in the browser.
-// Non-prefixed vars are runtime-only and server-side only, used to override
-// the host for server-side rendering (e.g., Docker service name "typesense"
-// instead of the public hostname).
-const TYPESENSE_HOST =
-  (typeof window === "undefined" ? process.env.TYPESENSE_HOST : undefined) ??
-  process.env.NEXT_PUBLIC_TYPESENSE_HOST ??
-  "localhost";
-const TYPESENSE_PORT = process.env.NEXT_PUBLIC_TYPESENSE_PORT ?? "8108";
-const TYPESENSE_PROTOCOL = process.env.NEXT_PUBLIC_TYPESENSE_PROTOCOL ?? "http";
-const TYPESENSE_API_KEY =
-  process.env.NEXT_PUBLIC_TYPESENSE_API_KEY ?? "dev-api-key";
+import type {
+  Message,
+  Conversation,
+  MessageFilters,
+  ConversationFilters,
+  PaginationOptions,
+  SearchResults,
+  SearchHit,
+} from "./types";
+
+// Re-export types for convenience (server-side consumers)
+export type {
+  Message,
+  Conversation,
+  MessageFilters,
+  ConversationFilters,
+  PaginationOptions,
+  SearchResults,
+  SearchHit,
+};
+
+// Server-side configuration from environment
+const TYPESENSE_HOST = process.env.TYPESENSE_HOST ?? "localhost";
+const TYPESENSE_PORT = process.env.TYPESENSE_PORT ?? "8108";
+const TYPESENSE_PROTOCOL = process.env.TYPESENSE_PROTOCOL ?? "http";
+const TYPESENSE_API_KEY = process.env.TYPESENSE_API_KEY ?? "dev-api-key";
 
 // Collection names
 const MESSAGES_COLLECTION = "messages";
 const CONVERSATIONS_COLLECTION = "conversations";
-
-/**
- * Message document matching CanonicalMessage.to_typesense_doc()
- */
-export interface Message {
-  id: string;
-  source: string;
-  machine_id: string;
-  project: string;
-  conversation_id: string;
-  ts: number;
-  role: string;
-  content: string;
-  content_hash: string;
-  raw_path: string;
-  raw_offset: number;
-}
-
-/**
- * Conversation document matching Conversation.to_typesense_doc()
- */
-export interface Conversation {
-  id: string;
-  source: string;
-  machine_id: string;
-  project: string;
-  conversation_id: string;
-  first_ts: number;
-  last_ts: number;
-  message_count: number;
-  title: string;
-  preview: string;
-}
-
-/**
- * Pagination options for search requests.
- */
-export interface PaginationOptions {
-  page?: number;
-  perPage?: number;
-}
-
-/**
- * Filter options for message searches.
- */
-export interface MessageFilters {
-  source?: string;
-  machineId?: string;
-  project?: string;
-  conversationId?: string;
-  role?: string;
-  startTs?: number;
-  endTs?: number;
-}
-
-/**
- * Filter options for conversation searches.
- */
-export interface ConversationFilters {
-  source?: string;
-  machineId?: string;
-  project?: string;
-  startTs?: number;
-  endTs?: number;
-}
-
-/**
- * A single search hit with highlighting information.
- */
-export interface SearchHit<T> {
-  document: T;
-  highlights: Array<{
-    field: string;
-    snippet: string;
-    matchedTokens: string[];
-  }>;
-  textMatch: number;
-}
-
-/**
- * Paginated search results.
- */
-export interface SearchResults<T> {
-  hits: SearchHit<T>[];
-  found: number;
-  page: number;
-  perPage: number;
-  totalPages: number;
-  facetCounts?: Record<string, Array<{ value: string; count: number }>>;
-}
 
 /**
  * Raw Typesense API response shape.
@@ -141,18 +64,6 @@ interface TypesenseSearchResponse<T> {
 }
 
 /**
- * Create the Typesense client configuration.
- */
-export function getTypesenseConfig() {
-  return {
-    host: TYPESENSE_HOST,
-    port: TYPESENSE_PORT,
-    protocol: TYPESENSE_PROTOCOL,
-    apiKey: TYPESENSE_API_KEY,
-  };
-}
-
-/**
  * Get the base URL for Typesense API requests.
  */
 function getBaseUrl(): string {
@@ -160,7 +71,7 @@ function getBaseUrl(): string {
 }
 
 /**
- * Build filter string from filter options.
+ * Build filter string from message filter options.
  */
 function buildMessageFilterString(filters: MessageFilters): string {
   const parts: string[] = [];
@@ -282,22 +193,6 @@ function transformResponse<T>(
 
 /**
  * Search messages by query string.
- *
- * @param query - The search query (use "*" for all documents)
- * @param filters - Optional filters to narrow results
- * @param pagination - Pagination options (page starts at 1)
- * @returns Paginated search results with highlighted matches
- *
- * @example
- * // Search for "authentication" in all messages
- * const results = await searchMessages("authentication");
- *
- * @example
- * // Search with filters and pagination
- * const results = await searchMessages("error", {
- *   source: "claude_code",
- *   role: "assistant",
- * }, { page: 2, perPage: 20 });
  */
 export async function searchMessages(
   query: string,
@@ -326,21 +221,6 @@ export async function searchMessages(
 
 /**
  * Search conversations by query string.
- *
- * @param query - The search query (use "*" for all documents)
- * @param filters - Optional filters to narrow results
- * @param pagination - Pagination options (page starts at 1)
- * @returns Paginated search results with highlighted matches
- *
- * @example
- * // List all conversations sorted by recency
- * const results = await searchConversations("*");
- *
- * @example
- * // Search conversations in a specific project
- * const results = await searchConversations("refactor", {
- *   project: "/home/user/myproject",
- * }, { page: 1, perPage: 25 });
  */
 export async function searchConversations(
   query: string,
@@ -357,7 +237,7 @@ export async function searchConversations(
     per_page: perPage,
     sort_by: "last_ts:desc",
     facet_by: "source,project,machine_id",
-    max_facet_values: 100, // Reasonable limit for dropdowns
+    max_facet_values: 100,
   };
 
   const filterStr = buildConversationFilterString(filters);
@@ -374,13 +254,6 @@ export async function searchConversations(
 
 /**
  * Get all messages in a specific conversation.
- *
- * @param conversationId - The conversation ID to fetch messages for
- * @param pagination - Pagination options (page starts at 1)
- * @returns Paginated messages sorted by timestamp ascending
- *
- * @example
- * const messages = await getConversationMessages("abc123");
  */
 export async function getConversationMessages(
   conversationId: string,
@@ -403,39 +276,7 @@ export async function getConversationMessages(
 }
 
 /**
- * Get a single message by ID.
- *
- * @param id - The message ID
- * @returns The message document or null if not found
- */
-export async function getMessageById(id: string): Promise<Message | null> {
-  const url = `${getBaseUrl()}/collections/${MESSAGES_COLLECTION}/documents/${encodeURIComponent(id)}`;
-
-  const response = await fetch(url, {
-    method: "GET",
-    headers: {
-      "X-TYPESENSE-API-KEY": TYPESENSE_API_KEY,
-      "Content-Type": "application/json",
-    },
-  });
-
-  if (response.status === 404) {
-    return null;
-  }
-
-  if (!response.ok) {
-    const error = await response.text();
-    throw new Error(`Typesense fetch failed: ${response.status} ${error}`);
-  }
-
-  return response.json() as Promise<Message>;
-}
-
-/**
  * Get a single conversation by ID.
- *
- * @param id - The conversation ID
- * @returns The conversation document or null if not found
  */
 export async function getConversationById(
   id: string

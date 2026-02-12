@@ -8,7 +8,7 @@ import {
   type Conversation,
   type ConversationFilters,
   type SearchResults,
-} from "@/lib/typesense";
+} from "@/lib/api";
 import { SearchableSelect } from "@/components/SearchableSelect";
 
 function formatTimestamp(ts: number): string {

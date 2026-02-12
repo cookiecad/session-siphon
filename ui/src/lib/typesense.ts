@@ -6,7 +6,14 @@
  */
 
 // Configuration from environment or defaults
-const TYPESENSE_HOST = process.env.NEXT_PUBLIC_TYPESENSE_HOST ?? "localhost";
+// NEXT_PUBLIC_ vars are baked in at build time and available in the browser.
+// Non-prefixed vars are runtime-only and server-side only, used to override
+// the host for server-side rendering (e.g., Docker service name "typesense"
+// instead of the public hostname).
+const TYPESENSE_HOST =
+  (typeof window === "undefined" ? process.env.TYPESENSE_HOST : undefined) ??
+  process.env.NEXT_PUBLIC_TYPESENSE_HOST ??
+  "localhost";
 const TYPESENSE_PORT = process.env.NEXT_PUBLIC_TYPESENSE_PORT ?? "8108";
 const TYPESENSE_PROTOCOL = process.env.NEXT_PUBLIC_TYPESENSE_PROTOCOL ?? "http";
 const TYPESENSE_API_KEY =

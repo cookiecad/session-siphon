@@ -42,5 +42,7 @@ services:
     restart: unless-stopped
     ports:
       - "${UI_PORT:-3000}:3000"
+    environment:
+      - TYPESENSE_HOST=typesense
     depends_on:
       - typesense

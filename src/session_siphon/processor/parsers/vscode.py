@@ -177,6 +177,7 @@ class VSCodeCopilotParser(Parser):
         session_id: str,
         machine_id: str,
         project: str,
+        raw_path: str,
         git_repo: str | None,
     ) -> list[CanonicalMessage]:
         """Extract assistant messages from a request's response.
@@ -187,8 +188,7 @@ class VSCodeCopilotParser(Parser):
             machine_id: Machine identifier
             project: Project/workspace path
             raw_path: Path to source file
-            git_repo: Git repository identifierth
-            raw_path: Path to source file
+            git_repo: Git repository identifier
 
         Returns:
             List of CanonicalMessage instances for assistant responses

@@ -8,6 +8,9 @@ resolves the git repository for each project path locally, and updates the Types
 """
 
 import sys
+import subprocess
+import shlex
+from functools import lru_cache
 from pathlib import Path
 
 # Add src to path if running from repo root
@@ -22,18 +25,50 @@ from session_siphon.processor.git_utils import get_git_repo_info
 
 logger = get_logger("backfill")
 
+@lru_cache(maxsize=1024)
+def get_remote_git_repo_info(machine_id: str, project_path: str) -> str | None:
+    """Get git repo info from a remote machine via SSH."""
+    cmd = f"git -C {shlex.quote(project_path)} config --get remote.origin.url"
+    ssh_cmd = ["ssh", machine_id, cmd]
+    
+    try:
+        result = subprocess.run(
+            ssh_cmd,
+            capture_output=True,
+            text=True,
+            timeout=5,  # Short timeout for responsiveness
+            check=False
+        )
+        
+        url = result.stdout.strip()
+        if url:
+             # Parse URL to get owner/repo
+             # Remove .git suffix
+            if url.endswith(".git"):
+                url = url[:-4]
+            
+            parts = url.split("/")
+            if len(parts) >= 2:
+                return f"{parts[-2]}/{parts[-1]}"
+            return parts[-1]
+            
+    except Exception as e:
+        logger.debug("Remote git check failed for %s:%s - %s", machine_id, project_path, e)
+        
+    return None
+
 def backfill():
-    setup_logging()
+    setup_logging("backfill")
     config = load_config()
     
-    logger.info("Starting backfill for machine_id: %s", config.machine_id)
+    logger.info("Starting centralized backfill from machine: %s", config.machine_id)
     
     indexer = TypesenseIndexer(config.typesense)
     client = indexer.client
     
     # Verify connection
     try:
-        client.health.retrieve()
+        client.collections.retrieve()
         logger.info("Connected to Typesense at %s:%s", config.typesense.host, config.typesense.port)
     except Exception as e:
         logger.error("Failed to connect to Typesense: %s", e)
@@ -43,13 +78,13 @@ def backfill():
     process_collection(client, "conversations", config.machine_id)
     
     # Process 'messages' collection
-    # Note: This might be huge. We might want to optimize by caching project->git_repo mappings
     process_collection(client, "messages", config.machine_id)
 
-def process_collection(client, collection_name, machine_id):
+def process_collection(client, collection_name, local_machine_id):
     logger.info("Processing collection: %s", collection_name)
     
     # Cache for project path -> git repo
+    # Key: (machine_id, project_path) -> git_repo
     repo_cache = {}
     
     page = 1
@@ -57,14 +92,9 @@ def process_collection(client, collection_name, machine_id):
     updated_count = 0
     
     while True:
-        # Search for docs from this machine
-        # We process everything, even if git_repo exists, in case mapped path changed? 
-        # Or optimization: filter_by: machine_id:=... && git_repo:=[is_null] (Typesense syntax depends on version)
-        # Using simple filter for machine_id for now.
-        
+        # Search for ALL docs (remove machine_id filter)
         search_params = {
             "q": "*",
-            "filter_by": f"machine_id:={machine_id}",
             "per_page": per_page,
             "page": page,
         }
@@ -87,18 +117,24 @@ def process_collection(client, collection_name, machine_id):
             doc = hit["document"]
             doc_id = doc["id"]
             project = doc.get("project", "")
+            machine_id = doc.get("machine_id", "unknown")
             
-            if not project:
+            if not project or not machine_id:
                 continue
                 
             # Check cache
-            if project in repo_cache:
-                git_repo = repo_cache[project]
+            cache_key = (machine_id, project)
+            if cache_key in repo_cache:
+                git_repo = repo_cache[cache_key]
             else:
-                git_repo = get_git_repo_info(project)
-                repo_cache[project] = git_repo
+                if machine_id == local_machine_id:
+                    git_repo = get_git_repo_info(project)
+                else:
+                    git_repo = get_remote_git_repo_info(machine_id, project)
+                
+                repo_cache[cache_key] = git_repo
                 if git_repo:
-                     logger.debug("Resolved %s -> %s", project, git_repo)
+                     logger.debug("Resolved %s:%s -> %s", machine_id, project, git_repo)
             
             # If we found a repo and it's different/missing, update
             current_repo = doc.get("git_repo")

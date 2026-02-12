@@ -314,7 +314,7 @@ function SearchPageContent() {
                   {hit.document.project}
                 </span>
                 <Link
-                  href={`/conversation/${encodeURIComponent(hit.document.conversation_id)}`}
+                  href={`/conversation/${encodeURIComponent(`${hit.document.source}:${hit.document.machine_id}:${hit.document.conversation_id}`)}`}
                   className="font-medium text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
                 >
                   View Conversation &rarr;
